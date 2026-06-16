@@ -124,6 +124,37 @@ cmd_convert_glm47() {
 	docker compose -f "$REPO_DIR/docker-compose.yml" run --rm convert-glm47 "${cmd[@]}"
 }
 
+cmd_convert_gemma4() {
+	local keep_fp16=false
+	if [[ "${1:-}" == "--keep-fp16" ]]; then
+		keep_fp16=true
+		shift
+	fi
+	[[ $# -ge 3 ]] || die "Usage: ungguf convert-gemma4 [--keep-fp16] <gguf_file> <output_dir> <ref_model_dir>"
+	local gguf_path="$1"
+	local output_dir="$2"
+	local ref_dir="$3"
+
+	local gguf_dir gguf_file
+	read -r gguf_dir gguf_file <<<"$(split_path "$gguf_path")"
+	output_dir="$(cd "$output_dir" && pwd)"
+	ref_dir="$(cd "$ref_dir" && pwd)"
+
+	export GPU="${GPU:-0}"
+	export SHARD_SIZE_MB="${SHARD_SIZE_MB:-4500}"
+	export GGUF_DIR="$gguf_dir"
+	export GGUF_FILE="$gguf_file"
+	export OUTPUT_DIR="$output_dir"
+	export REF_MODEL_DIR="$ref_dir"
+
+	local cmd=(python3 gguf_to_safetensors_gemma4.py
+		--gguf "/input/$gguf_file" --output /output
+		--reference-model /ref --shard-size-mb "${SHARD_SIZE_MB:-4500}")
+	if $keep_fp16; then cmd+=(--keep-fp16); fi
+
+	docker compose -f "$REPO_DIR/docker-compose.yml" run --rm convert-gemma4 "${cmd[@]}"
+}
+
 cmd_convert_qwen3() {
 	local keep_fp16=false
 	if [[ "${1:-}" == "--keep-fp16" ]]; then
@@ -352,6 +383,40 @@ cmd_verify_glm47() {
 	if $keep_fp16; then cmd+=(--keep-fp16); fi
 
 	docker compose -f "$REPO_DIR/docker-compose.yml" run --rm verify-glm47 "${cmd[@]}"
+}
+
+cmd_verify_gemma4() {
+	local keep_fp16=false
+	if [[ "${1:-}" == "--keep-fp16" ]]; then
+		keep_fp16=true
+		shift
+	fi
+	[[ $# -ge 3 ]] || die "Usage: ungguf verify-gemma4 [--keep-fp16] <gguf_file> <converted_dir> <ref_model_dir> [results_dir]"
+	local gguf_path="$1"
+	local converted_dir="$2"
+	local ref_dir="$3"
+	local results_dir="${4:-$(pwd)/results}"
+
+	local gguf_dir gguf_file
+	read -r gguf_dir gguf_file <<<"$(split_path "$gguf_path")"
+	converted_dir="$(cd "$converted_dir" && pwd)"
+	ref_dir="$(cd "$ref_dir" && pwd)"
+	mkdir -p "$results_dir"
+	results_dir="$(cd "$results_dir" && pwd)"
+
+	export GPU="${GPU:-0}"
+	export GGUF_DIR="$gguf_dir"
+	export GGUF_FILE="$gguf_file"
+	export OUTPUT_DIR="$converted_dir"
+	export REF_MODEL_DIR="$ref_dir"
+	export RESULTS_DIR="$results_dir"
+
+	local cmd=(python3 verify_conversion_gemma4.py
+		--gguf "/input/$gguf_file" --converted /converted
+		--reference /ref --output /results/gemma4_verification.json)
+	if $keep_fp16; then cmd+=(--keep-fp16); fi
+
+	docker compose -f "$REPO_DIR/docker-compose.yml" run --rm verify-gemma4 "${cmd[@]}"
 }
 
 cmd_verify_qwen3() {
@@ -604,11 +669,13 @@ cmd_help() {
 	echo -e "Usage: ${BOLD}ungguf${RESET} <command> [args...]"
 	echo ""
 	echo -e "  ${BOLD}build${RESET} [convert|inference]   Build Docker images (default: convert)"
+	echo -e "  ${BOLD}convert-gemma4${RESET} [--keep-fp16] <g> <o> <r>  Convert Gemma 4 (Dense+MoE) GGUF"
 	echo -e "  ${BOLD}convert-qwen35${RESET} [--keep-fp16] <g> <o> <r>  Convert Qwen3.5 GGUF to safetensors"
 	echo -e "  ${BOLD}convert-glm47${RESET} [--keep-fp16] <g> <o> <r>  Convert GLM-4.7 / deepseek2 GGUF"
 	echo -e "  ${BOLD}convert-qwen3${RESET} [--keep-fp16] <g> <o> <r>   Convert Qwen3 GGUF to safetensors"
 	echo -e "  ${BOLD}convert-qwen36${RESET} [--keep-fp16] <g> <o> <r>  Convert Qwen3.6 GGUF to safetensors"
 	echo -e "  ${BOLD}convert-qwen36-moe${RESET} [--keep-fp16] <g> <o> <r>  Convert Qwen3.6-35B-A3B MoE GGUF"
+	echo -e "  ${BOLD}verify-gemma4${RESET}  [--keep-fp16] <g> <c> <ref>  Verify Gemma 4 conversion is bit-exact"
 	echo -e "  ${BOLD}verify${RESET} [--keep-fp16] <g> <c> <ref>   Verify Qwen3.5 conversion is bit-exact"
 	echo -e "  ${BOLD}verify-glm47${RESET} [--keep-fp16] <g> <c> <ref>  Verify GLM-4.7 conversion is bit-exact"
 	echo -e "  ${BOLD}verify-qwen3${RESET} <gguf> <converted_dir>       Verify Qwen3 conversion is bit-exact"
@@ -634,6 +701,10 @@ build)
 	shift
 	cmd_build "$@"
 	;;
+convert-gemma4)
+	shift
+	cmd_convert_gemma4 "$@"
+	;;
 convert-qwen35)
 	shift
 	cmd_convert_qwen35 "$@"
@@ -653,6 +724,10 @@ convert-qwen36)
 convert-qwen36-moe)
 	shift
 	cmd_convert_qwen36_moe "$@"
+	;;
+verify-gemma4)
+	shift
+	cmd_verify_gemma4 "$@"
 	;;
 verify)
 	shift
