@@ -161,6 +161,7 @@ def run_sanity(
     max_tokens: int = 256,
     max_model_len: int = 4096,
     gpu_memory_utilization: float = 0.92,
+    disable_chunked_prefill: bool = False,
 ):
     model_format = detect_format(model_path)
     print(f"Model:  {model_path}")
@@ -182,6 +183,12 @@ def run_sanity(
         "gpu_memory_utilization": gpu_memory_utilization,
         "enforce_eager": True,  # skip cuda graph compilation for one-off sanity check
     }
+    
+    # Gemma 4 specific requirement (from PDF constraints)
+    if disable_chunked_prefill:
+        llm_kwargs["enable_chunked_prefill"] = False
+        llm_kwargs["disable_chunked_mm_input"] = True # vLLM argument for multimodal chunking
+        
     if tokenizer_path:
         llm_kwargs["tokenizer"] = tokenizer_path
     if quantize:
@@ -326,6 +333,11 @@ def main():
     parser.add_argument(
         "--gpu-mem-util", type=float, default=0.92, help="GPU memory utilization (0.0-1.0)"
     )
+    parser.add_argument(
+        "--disable-chunked-prefill", 
+        action="store_true", 
+        help="Disable chunked prefill/mm input (Required for Gemma 4 heterogeneous attention)"
+    )
     args = parser.parse_args()
 
     run_sanity(
@@ -338,8 +350,8 @@ def main():
         max_tokens=args.max_tokens,
         max_model_len=args.max_model_len,
         gpu_memory_utilization=args.gpu_mem_util,
+        disable_chunked_prefill=args.disable_chunked_prefill,
     )
-
 
 if __name__ == "__main__":
     main()
