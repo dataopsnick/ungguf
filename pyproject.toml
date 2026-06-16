@@ -61,6 +61,7 @@ known-first-party = [
     "mappings_qwen3",
     "mappings_qwen35",
     "mappings_glm47",
+    "mappings_gemma4",
 ]
 
 [tool.ruff.format]
