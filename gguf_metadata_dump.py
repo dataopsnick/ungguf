@@ -19,6 +19,7 @@ HIGHLIGHT_PATTERNS = [
     "recurrent",
     "qwen3moe",
     "qwen3",
+    "gemma",
     "attention",
     "architecture",
     "block_count",
