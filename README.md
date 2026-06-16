@@ -25,6 +25,7 @@ models can be loaded by HuggingFace-compatible inference engines such as vLLM.
 | **Qwen3.6** | `convert-qwen36` | BF16, F16, F32, Q8_0, etc. | Same hybrid architecture as Qwen3.5. Handles GGUF files that exclude MTP/vision tensors (copies from reference). |
 | **Qwen3.6-MoE** | `convert-qwen36-moe` | BF16, F16, F32, Q8_0, etc. | MoE hybrid (256 experts, 8 active). Expert 3D tensor reshape, GGML F-order reversal, V-head reorder. |
 | **GLM-4.7-Flash** | `convert-glm47` | BF16, F16, F32, Q8_0, etc. | DeepSeek2 architecture with MLA attention + MoE. Handles kv_b_proj reconstruction, 3D expert tensor splitting. |
+| **Gemma 4** | `convert-gemma4` | BF16, F16, F32, Q8_0, etc. | Dense & MoE variants. Handles 4x RMSNorm (-1.0 logic), copies missing vision/audio tensors from reference. |
 
 Quantized formats (Q8_0, Q4_K_M, etc.) are dequantized to bfloat16 during conversion. Use `--keep-fp16` to preserve float16 tensors when the source GGUF is FP16.
 
@@ -74,6 +75,9 @@ quantization — it just needs to be the same architecture with matching tensor 
 # GLM-4.7 example
 ./ungguf.sh convert-glm47 model.gguf ./output ./reference_model
 
+# Gemma 4 example
+./ungguf.sh convert-gemma4 model.gguf ./output ./reference_model
+
 # With --keep-fp16 (preserves FP16 tensors for FP16 GGUF sources)
 ./ungguf.sh convert-glm47 --keep-fp16 model.gguf ./output ./reference_model
 ```
@@ -97,6 +101,9 @@ Bit-exact verification that every tensor in the GGUF matches the safetensors out
 
 # GLM-4.7
 ./ungguf.sh verify-glm47 model.gguf ./output ./reference_model
+
+# Gemma 4
+./ungguf.sh verify-gemma4 model.gguf ./output ./reference_model
 ```
 
 The verifier decodes every GGUF tensor independently and compares it against the converted
@@ -142,11 +149,13 @@ Commands:
   convert-qwen36 [--keep-fp16] <g> <o> <r>  Convert Qwen3.6 (dense) GGUF to safetensors
   convert-qwen36-moe [--keep-fp16] <g> <o> <r>  Convert Qwen3.6 MoE GGUF to safetensors
   convert-glm47  [--keep-fp16] <g> <o> <r>  Convert GLM-4.7 GGUF to safetensors
+  convert-gemma4 [--keep-fp16] <g> <o> <r>  Convert Gemma 4 (Dense + MoE) GGUF to safetensors
   convert-qwen3  [--keep-fp16] <g> <o> <r>  Convert Qwen3 GGUF to safetensors
   verify         [--keep-fp16] <g> <c> <r>  Verify Qwen3.5 conversion (bit-exact)
   verify-qwen36  [--keep-fp16] <g> <c> <r>  Verify Qwen3.6 (dense) conversion (bit-exact)
   verify-qwen36-moe [--keep-fp16] <g> <c> <r>  Verify Qwen3.6 MoE conversion (bit-exact)
   verify-glm47   [--keep-fp16] <g> <c> <r>  Verify GLM-4.7 conversion (bit-exact)
+  verify-gemma4  [--keep-fp16] <g> <c> <r>  Verify Gemma 4 conversion (bit-exact)
   verify-qwen3   [--keep-fp16] <g> <c>      Verify Qwen3 conversion (bit-exact)
   inspect        <gguf> [gguf2 ...]          Dump GGUF metadata and tensor layout
   sanity         <model|gguf> [opts]         Run vLLM inference sanity check
@@ -221,16 +230,19 @@ src/
   mappings_qwen35.py           Qwen3.5 tensor name mappings + V-head reorder
   mappings_qwen36_moe.py       Qwen3.6 MoE tensor name mappings + expert builders
   mappings_glm47.py            GLM-4.7 tensor name mappings + kv_b reconstruction
+  mappings_gemma4.py           Gemma 4 tensor name mappings + multimodal logic
   gguf_to_safetensors_qwen3.py    Qwen3 converter
   gguf_to_safetensors_qwen35.py   Qwen3.5 converter
   gguf_to_safetensors_qwen36.py   Qwen3.6 (dense) converter
   gguf_to_safetensors_qwen36_moe.py  Qwen3.6 MoE converter
   gguf_to_safetensors_glm47.py    GLM-4.7 converter
+  gguf_to_safetensors_gemma4.py   Gemma 4 (Dense + MoE) converter
   verify_conversion_qwen3.py      Qwen3 bit-exact verifier
   verify_conversion_qwen35.py     Qwen3.5 bit-exact verifier
   verify_conversion_qwen36.py     Qwen3.6 (dense) bit-exact verifier
   verify_conversion_qwen36_moe.py Qwen3.6 MoE bit-exact verifier
   verify_conversion_glm47.py      GLM-4.7 bit-exact verifier
+  verify_conversion_gemma4.py     Gemma 4 (Dense + MoE) bit-exact verifier
   verify_sha256.py                 SHA256 fingerprint comparator
   vllm_sanity.py                   vLLM inference sanity checker
 gguf_metadata_dump.py          GGUF forensic inspection tool
