@@ -53,8 +53,22 @@ def canonical(name: str) -> str:
 
 
 def is_lm_key(raw_key: str, canonical_key: str) -> bool:
-    """Return True if this tensor belongs to the language model (not visual/mtp)."""
-    return "language_model" in canonical_key and "visual" not in raw_key and "mtp" not in raw_key
+    """Return True if this tensor belongs to the language model.
+    
+    Excludes multimodal towers (visual, vision, audio), MTP modules, 
+    and dynamically generated HF buffers (inv_freq, rope).
+    """
+    excluded = ["visual", "vision", "audio", "mtp", "inv_freq", "rope"]
+    lower_key = raw_key.lower()
+    
+    if any(ex in lower_key for ex in excluded):
+        return False
+        
+    # Accept standard HuggingFace text model prefixes
+    if "model." in canonical_key or "lm_head" in canonical_key or "language_model" in canonical_key:
+        return True
+        
+    return False
 
 
 def tensor_bytes(t: torch.Tensor) -> bytes:
